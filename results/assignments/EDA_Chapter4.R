@@ -137,27 +137,42 @@ ggplot(to_plot, aes(x = max_day, y = area, col = sname, cex = alt_class)) +
 
 #2a:
 
-skew <- length(runoff_day$value)/6.79
-skew
+skew_def <- length(runoff_day$value)/6.79
+skew_def
 
-COV <- sd(runoff_day$value)/mean(runoff_day$value)
-COV
+COV_def <- sd(runoff_day$value)/mean(runoff_day$value)
+COV_def
 
-runoff_stats <- runoff_stats[, .(skew = length(value)/6.79),
-                                 COV = sd(value)/mean(value), by = sname]
+
+runoff_stats[, skew := length(mean_day)/6.79, by = sname]
+runoff_stats
+
+runoff_stats[, cov := sd_day/mean_day, by = sname]
+runoff_stats
 
 #2b: 
 
-skew_cov <- data.table()
+skew_cov_dt <- data.table(runoff_stats$skew, runoff_stats$cov)
+skew_cov_dt
 
-skew_cov <- runoff_day[, .(skew = round(length(value))/mean(value), 0),
-                       cov = round(sd(value))/mean(value), by = sname]
-
+skew_cov_dt[, .(skew = V1), (cov = V2)]
 
 #3:
 
-ggplot(to_plot, aes(x = sname, y = mean_day, group=sname))+
+ggplot(to_plot, aes(x = sname, y = max_day, group=sname))+
   geom_boxplot(fill='blue', alpha=0.2)+
+  xlab('station')
+
+ggplot(to_plot, aes(x = sname, y = mean_day, group=sname))+
+  geom_boxplot(fill='red', alpha=0.2)+
+  xlab('station')
+
+ggplot(to_plot, aes(x = sname, y = min_day, group=sname))+
+  geom_boxplot(fill='green', alpha=0.2)+
+  xlab('station')
+
+ggplot(to_plot, aes(x = sname, y = sd_day, group=sname))+
+  geom_boxplot(fill='black', alpha=0.2)+
   xlab('station')
 
 #4:
@@ -187,16 +202,33 @@ ggplot(to_plot2, aes(x = mean_day, y = altitude, col = sname, cex = area_class )
   theme_bw()
 
 
+ggplot(runoff_stats, aes(x = sname, y = mean_day, fill = mean_day)) +
+  geom_boxplot() +
+  geom_jitter(color='black', size=0.4, alpha=0.9) +
+  facet_wrap(~sname, scales = 'free')+
+  theme_bw()
+
+# the outliers for lowest values (Reki, Dier, Doma) are all in Switzerland. 
+# meanwhile the outliers for highest daily outflow are in the Netherlands and nearby
+# Germany, indicating since the catchment area is larger towards the end of the river
+# the outflow is also larger. 
+  
+
+
 # Explorer's questions ----------------------
 
-# The 0.5 quantile is the median
+#1: The 0.5 quantile is the median
 
 mean(runoff_stats$mean_day)
 runoff_stats[, quantile(mean_day)]
 
 # median: 1276
 # mean: 1305.471
-# The mean is less reliable due to being more influenced by outliers. 
+#2:  The mean is less reliable due to being more influenced by outliers. 
+
+#3: They both have the highest maximums of runoff. Their elevation is similar and
+# low. They are both surrounded by a lot of smaller water bodies as well, which collect
+# water from the main Rhine river, which might be a factor in explaining the high maximums.
 
 #4:
 runoff_stats
@@ -230,11 +262,26 @@ sum(runoff_summer_max$value)
 sum(runoff_spring_max$value)
 sum(runoff_autumn_max$value)
 
+runoff_winter
 
-ggplot(runoff_stats, aes(max_day)) +
+
+ggplot(runoff_winter, aes(value)) +
   geom_boxplot(fill = "#97B8C2") +
   facet_wrap(~sname, scales = 'free') +
   theme_bw()
 
+ggplot(runoff_summer, aes(value)) +
+  geom_boxplot(fill = "#97B8C2") +
+  facet_wrap(~sname, scales = 'free') +
+  theme_bw()
 
+ggplot(runoff_spring_max, aes(value)) +
+  geom_boxplot(fill = "#97B8C2") +
+  facet_wrap(~sname, scales = 'free') +
+  theme_bw()
+
+ggplot(runoff_autumn_max, aes(value)) +
+  geom_boxplot(fill = "#97B8C2") +
+  facet_wrap(~sname, scales = 'free') +
+  theme_bw()
 
