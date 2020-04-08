@@ -11,72 +11,75 @@ head(runoff_stations)
 
 runoff_stations[, sname := abbreviate(station)]
 runoff_stations[, altitude := round(altitude, 0)]
+runoff_stations[, id := factor(id)]
 
-runoff_stations_aas <- runoff_stations[, 6:8]
-runoff_stations_lls<- runoff_stations[, 4:8]
-runoff_stations_sname <- runoff_stations[, 8]
-
-
-head(runoff_stations)
-head(runoff_stations_aas)
-head(runoff_stations_lls)
-
+runoff_area_alt <- runoff_stations[, .(sname, area, altitude)]
 
 # 2. 
 
-ggplot(data = runoff_stations_aas)+
+ggplot(data = runoff_stations)+
   geom_point(aes(x = area, y = altitude))
 
 # 3.
 
-# attempt1
-ggplot(data = runoff_stations_aas, aes(x = area, y = altitude)) +
+ggplot(data = runoff_stations, aes(x = area, y = altitude, col = size)) +
   geom_point() +
-  geom_text(
-    label=rownames(runoff_stations_aas[,3]),
-    nudge_x = 0.25, nudge_y = 0.25,
-    check_overlap = T
-  )
+  geom_text(label = runoff_stations$sname, 
+            position = position_jitter(width = 50, height = 50)) +
+  theme_minimal()
 
-# attempt2 
-ggplot(data = runoff_stations_aas, aes(x = area, y= altitude, color='blue', label=sname))+
-  geom_point() + geom_text(aes(label=sname), hjust=0, vjust=0) + theme(legend.position = 'right')
+ggplot(data = runoff_stations, aes(x = lon, y = lat, col = altitude)) +
+  geom_point() +
+  geom_text(label = runoff_stations$sname, 
+            position = position_jitter(width = 0.2, height = 0.2)) +
+  scale_color_gradient(low = 'dark green', high = 'brown') +
+  theme_bw()
+    
 
-ggplot(data = runoff_stations_lls, aes(x = lon, y = lat, color = 'green', label=sname))+
-  geom_point() + geom_text(aes(label=sname), hjust=0, vjust=0) + theme(legend.position = 'right')
 
+# 4. 
 
-# 3. 
+to_plot <- runoff_stations[, .(sname, start, end)]
+to_plot <- melt(to_plot, id.vars = 'sname')
 
-runoff_day <- readRDS('./data/runoff_day_raw.rds')
-head(runoff_day)
-
-station_time <- runoff_day[, .(start = min(year(date)),
-                               end = max(year(date))),
-                           by = sname]
-table(station_time$end)
+ggplot(data = to_plot, aes(x = value, y = sname)) +
+  geom_line(lwd = 2, col = 'dark red') +
+  theme_bw()
 
 
 ## Explorer questions
 
-# 1a: Units for area: m^2
+# 1a: Units for area: km^2
 # 1b: Units for runoff: m^3/s
 
-#2: avg. catchment area and runoff
+#2: avg. catchment area and runoff, data.frame
 
-avg_catchment <- mean(runoff_stations_aas$area)
+runoff_day <- readRDS('./data/runoff_day.rds')
+
+avg_catchment <- mean(runoff_stations_aas$area) 
 avg_catchment
-# 67069.5 m^2
+# 67069.5 km^2
 
 avg_runoff <- mean(runoff_day$value)
 avg_runoff
 # 2028.642 m^3
+
+#2: avg. catchment area and runoff, data.table
+runoff_stations[, mean(area)]
+runoff_day[, mean(value)]
 
 #3: avg. runoff per station
 
 head(runoff_day)
 
 runoff_day[, list(avg=mean(value)), by=sname]
+
+avg_runoff_stations <- runoff_day[, .(mean_runoff = mean(value)), by = sname]
+avg_runoff_stations <- avg_runoff_stations[, mean_runoff := round(mean_runoff, 3)]
+sname_plot <- ggplot(aver_runoff_stations, aes(x = sname, y = mean_runoff)) +
+  geom_bar(stat = "identity", width = 0.4)
+
+print(sname_plot + labs(title = "Average runoff per station", x = "Station", y = "Mean runoff (m³)"))
 
 #4: They have a somewhat inverse relationship. Higher altitudes would
 # generally indicate 'peaks', hills or mountains, which by definition are
