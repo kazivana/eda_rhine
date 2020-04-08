@@ -81,6 +81,9 @@ sname_plot <- ggplot(aver_runoff_stations, aes(x = sname, y = mean_runoff)) +
 
 print(sname_plot + labs(title = "Average runoff per station", x = "Station", y = "Mean runoff (m³)"))
 
-#4: They have a somewhat inverse relationship. Higher altitudes would
-# generally indicate 'peaks', hills or mountains, which by definition are
-# not wide enough to have a large area the way plains at lower altitudes can.
+#4: The catchment area refers to the area where rainwater is collected by the river. 
+# At higher altitudes such as the beginning of the Rhine at the Alps, the river has
+# only just begun, meaning there is not a lot of catchment area. In contrast, by the
+# time it reaches the ocean and the elevation is minimal/nonexistent, the entire
+# river is behind this point, meaning the catchment area is very large here where 
+# the entirety of the river converges with the open water. 
