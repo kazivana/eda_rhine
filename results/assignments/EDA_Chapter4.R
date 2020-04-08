@@ -85,6 +85,7 @@ runoff_summer <- runoff_day[season == 'summer',
                             .(value = mean(value)),
                             by = .(sname, year)]
 
+
 # Map
 
 station_coords_sf <- st_as_sf(runoff_summary, 
@@ -197,6 +198,43 @@ runoff_stats[, quantile(mean_day)]
 # mean: 1305.471
 # The mean is less reliable due to being more influenced by outliers. 
 
+#4:
+runoff_stats
+runoff_month
+runoff_summer
+runoff_winter
+
+
+max_runoff_stats <- runoff_day[, .(max_runoff=max(value)), by = sname]
+max_runoff_stats <- max_runoff_stats[, max_runoff := round(max_runoff, 2)]
+maxplot <- ggplot(max_runoff_stats, aes(x = sname, y = max_runoff)) +
+  geom_bar(stat = 'identity', width = 0.4)
+print(maxplot + labs(title = "Maximum runoff per station", x = 'Station', y = 'Max runoff (m³)'))
+
+
+runoff_winter_max <- runoff_day[season == 'winter',
+                            .(value = max(value)),
+                            by = .(sname, year)]
+runoff_summer_max <- runoff_day[season == 'summer',
+                            .(value = max(value)),
+                            by = .(sname, year)]
+runoff_autumn_max <- runoff_day[season == 'autumn',
+                            .(value = max(value)),
+                            by = .(sname, year)]
+runoff_spring_max <- runoff_day[season == 'spring',
+                            .(value = max(value)),
+                            by = .(sname, year)]
+
+sum(runoff_winter_max$value)
+sum(runoff_summer_max$value)
+sum(runoff_spring_max$value)
+sum(runoff_autumn_max$value)
+
+
+ggplot(runoff_stats, aes(max_day)) +
+  geom_boxplot(fill = "#97B8C2") +
+  facet_wrap(~sname, scales = 'free') +
+  theme_bw()
 
 
 
