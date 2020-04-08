@@ -153,6 +153,49 @@ skew_cov <- runoff_day[, .(skew = round(length(value))/mean(value), 0),
                        cov = round(sd(value))/mean(value), by = sname]
 
 
+#3:
+
+ggplot(to_plot, aes(x = sname, y = mean_day, group=sname))+
+  geom_boxplot(fill='blue', alpha=0.2)+
+  xlab('station')
+
+#4:
+
+#area
+runoff_stations[, area_class := factor('small')]
+runoff_stations[area >= 10000 & area < 100000, area_class := factor('medium')]
+runoff_stations[area >= 100000, area_class := factor('large')]
+
+#altitude
+runoff_stations[, alt_class := factor('low')]
+runoff_stations[altitude >= 100 & altitude < 500, alt_class := factor('medium')]
+runoff_stations[altitude >= 500, alt_class := factor('high')]
+
+ggplot(to_plot, aes(x = mean_day, y = area, col = sname, cex = alt_class )) +
+  geom_point() +
+  scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
+  theme_bw()
+
+
+dt2 <-  runoff_summary[, .(sname, altitude, area_class)]
+to_plot2 <- runoff_stats[dt2, on = 'sname']
+
+ggplot(to_plot2, aes(x = mean_day, y = altitude, col = sname, cex = area_class )) +
+  geom_point() +
+  scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
+  theme_bw()
+
+
+# Explorer's questions ----------------------
+
+# The 0.5 quantile is the median
+
+mean(runoff_stats$mean_day)
+runoff_stats[, quantile(mean_day)]
+
+# median: 1276
+# mean: 1305.471
+# The mean is less reliable due to being more influenced by outliers. 
 
 
 
