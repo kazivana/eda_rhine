@@ -84,7 +84,7 @@ ggplot(runoff_winter[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
-# Explorer's questions ----------
+
 ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, col = sname)) +
   geom_smooth(method = 'loess', formula = y~x, se = 0) + 
   scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
@@ -111,4 +111,18 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
+# Explorer's questions ----------
 
+#1: DOMA: As our graphs showcase, DOMA (Domat/Ems) is the first station
+# on the river Rhine. Due to it being the first and upstream, it doesn't have a large
+# catchment area. While mid and downstream stations BARS and KOEL have runoff in the 
+# thousands of m^3/s, DOMA's remain in the hundreds, as shown in the boxplot.
+# Our regression analysis shows vaiations in the changes to outflow to the DOMA station
+# as well, particularly in winter. 
+# On one hand, DOMA is the first station which means its data is less influenced by other stations
+# of the river. It's outflow could be one of the indicators for what's comming to the river.
+# However, DOMA might not be the most representative station for the entire river, 
+# due to the low levels of runoff and correlation to the other stations. 
+
+
+#2: 
