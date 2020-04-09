@@ -45,6 +45,9 @@ ggplot(runoff_month_key, aes(month, value, fill = period)) +
 
 #2: 
 
+
+
+
 #3:
 
 ggplot(runoff_summer_key[year <= 2010], aes(x = year, y = value)) +
@@ -84,6 +87,8 @@ ggplot(runoff_winter[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
+# here we see that adding this change made the graph different by removing the upwards trends which
+# show up at the ends of the lines of the original graph. 
 
 ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, col = sname)) +
   geom_smooth(method = 'loess', formula = y~x, se = 0) + 
@@ -92,6 +97,9 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
   xlab(label = "Year") +
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
+
+# the same occurs for the summer plot - originally there are upturns in the end of the graph, but by
+# limiting it to pre-2010 we have a stronger downwards trend.
 
 # linear regression
 
@@ -111,6 +119,10 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
+# The linear regression plots show much more straight-forward trends, with upwards lines for
+# increasing winter runoff and downwards for decreasing summer runoff. This indicates that the 
+# results of the linear regression analysis might be oversimplified and overlooking variations. 
+
 # Explorer's questions ----------
 
 #1: DOMA: As our graphs showcase, DOMA (Domat/Ems) is the first station
@@ -126,3 +138,19 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
 
 
 #2: 
+
+
+#3: I was somewhat surprised to have seen the variations on the Rhine outflow in the above graph. 
+# Whereas I was expecting things to be a somewhat clear correlation between rising temperatures and lower
+# runoff, and to some extent this is shown, we also see there was variation in the Rhine outflow in the past,
+# indicating there is more natural variation (or due to other unaddressed causes) than was expected.
+# If trends continue in the same path, we risk witnessing what the Middelkoop and colleagues study predicted,
+# which is dangerously low river flow in the summer, and too high in the winter. 
+
+#4: I would be interested in examining the diversity of life along the Rhine river. Are there changes in the 
+# numbers or kinds of fish that live in the river over time? What about the wildlife around the Rhine? How about 
+# deforestation, are the natural resources around the river being perserved to help renew the river and keep 
+# natural cycles flowing? I would also be interested in pollution levels, whether the river has been adequately 
+# maintained by the governing bodies of the countries which depend on it. i would also be interested
+# in the groundwater supplies and their availability. Are they being depleted? If so, are they being replenished 
+# adequately? 
