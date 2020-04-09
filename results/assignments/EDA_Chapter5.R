@@ -45,6 +45,31 @@ ggplot(runoff_month_key, aes(month, value, fill = period)) +
 
 #2: 
 
+runoff_month <- readRDS('./data/runoff_month.rds')
+runoff_month[, quantile := cut(value,
+                               breaks = quantile(value, probs = seq(0, 1, by = 1/10)),
+                               labels = 1:10, right = FALSE)]
+runoff_month
+
+low_runoff_month <- runoff_month[, quantile == 1]
+high_runoff_month <- runoff_month[, quantile == 9]
+
+runoff_month[quantile == 1, by = sname, .N]
+runoff_month[quantile == 9, by = sname, .N]
+
+runoff_month[quantile == 1, by = month, .N]
+runoff_month[quantile == 9, by = month, .N]
+
+runoff_day <- readRDS('./data/runoff_day.rds')
+runoff_day[, quantile := cut(value,
+                             breaks = quantile(value, probs = seq(0, 1, by = 1/10)),
+                             labels = 1:10, right = FALSE)]
+
+low_runoff_day <- runoff_day[, quantile == 1]
+high_runoff_day <- runoff_day[, quantile ==9]
+
+runoff_day[quantile == 1, by = sname, .N]
+runoff_day[quantile == 9, by = sname, .N]
 
 
 
@@ -139,6 +164,67 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
 
 #2: 
 
+precip_day <- readRDS('./data/precip_day.rds')
+precip_day <- precip_day[date >= '1814-11-01']
+precip_day[, .(precipitation = value), (date=date)]
+
+runoff_day
+setkey(precip_day, date)
+setkey(runoff_day, date)
+precip_runoff_day <- precip_day[runoff_day]
+
+precip_runoff_day[, .(runoff = i.value)]
+
+ggplot(precip_runoff_day, aes(year, value, fill = i.value)) +
+  geom_boxplot() +
+  facet_wrap(~sname, scales = 'free_y') +
+  scale_fill_manual(values = colset_4[c(4, 1)]) +
+  xlab(label = "Year") +
+  ylab(label = "Runoff (m3/s)") +
+  theme_bw()
+
+
+ggplot() +
+  geom_point(data = to_plot, aes(x = mean_day, y = area, col = category), cex = 3) +
+  geom_smooth(data = to_plot[c(1:7)], aes(x = mean_day, y = area), 
+              method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
+  geom_smooth(data = to_plot[c(8:11)], aes(x = mean_day, y = area), 
+              method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
+  geom_smooth(data = to_plot[c(12:17)], aes(x = mean_day, y = area), 
+              method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
+  scale_color_manual(values = colset_4[c(2, 3, 4)]) +
+  xlab(label = "Area (km3)") +
+  ylab(label = "Runoff (m3/s)") +
+  theme_bw()
+
+
+ggplot(precip_runoff_day, aes(x = mean(i.value), y = value)) +
+  geom_point(aes(col = season), cex = 3) +
+  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), se = 0, col = colset_4[1]) +
+  scale_color_manual(values = colset_4[c(2, 3, 4)]) +
+  xlab(label = "Area (km3)") +
+  ylab(label = "Runoff (m3/s)") +
+  theme_bw()
+
+
+ggplot(precip_runoff_day, aes(season, value, fill = i.value)) +
+  geom_boxplot() +
+  facet_wrap(~sname, scales = 'free_y') +
+  scale_fill_manual(values = colset_4[c(4, 1)]) +
+  xlab(label = "Season") +
+  ylab(label = "Runoff (m3/s)") +
+  theme_bw()
+
+ggplot(precip_runoff_day, aes(x = year, y = value)) +
+  geom_line(col = colset_4[3])+
+  geom_point(col = colset_4[3])+
+  facet_wrap(~sname, scales = 'free') +
+  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
+  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
+  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
+  xlab(label = "Year") +
+  ylab(label = "Precipitation") +
+  theme_bw()
 
 #3: I was somewhat surprised to have seen the variations on the Rhine outflow in the above graph. 
 # Whereas I was expecting things to be a somewhat clear correlation between rising temperatures and lower
