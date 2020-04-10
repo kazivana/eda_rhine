@@ -165,6 +165,7 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
 #2: 
 
 precip_day <- readRDS('./data/precip_day.rds')
+runoff_day <- readRDS('./data/runoff_day.rds')
 precip_day <- precip_day[date >= '1814-11-01']
 precip_day[, .(precipitation = value), (date=date)]
 
@@ -180,29 +181,6 @@ ggplot(precip_runoff_day, aes(year, value, fill = i.value)) +
   facet_wrap(~sname, scales = 'free_y') +
   scale_fill_manual(values = colset_4[c(4, 1)]) +
   xlab(label = "Year") +
-  ylab(label = "Runoff (m3/s)") +
-  theme_bw()
-
-
-ggplot() +
-  geom_point(data = to_plot, aes(x = mean_day, y = area, col = category), cex = 3) +
-  geom_smooth(data = to_plot[c(1:7)], aes(x = mean_day, y = area), 
-              method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  geom_smooth(data = to_plot[c(8:11)], aes(x = mean_day, y = area), 
-              method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  geom_smooth(data = to_plot[c(12:17)], aes(x = mean_day, y = area), 
-              method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  scale_color_manual(values = colset_4[c(2, 3, 4)]) +
-  xlab(label = "Area (km3)") +
-  ylab(label = "Runoff (m3/s)") +
-  theme_bw()
-
-
-ggplot(precip_runoff_day, aes(x = mean(i.value), y = value)) +
-  geom_point(aes(col = season), cex = 3) +
-  geom_smooth(method = 'lm', formula = y ~ poly(x, 2), se = 0, col = colset_4[1]) +
-  scale_color_manual(values = colset_4[c(2, 3, 4)]) +
-  xlab(label = "Area (km3)") +
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
