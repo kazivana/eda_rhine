@@ -1,0 +1,172 @@
+---
+title: "EDA_Rhine"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "~/eda_rhine")
+```
+
+## R Markdown
+
+The river we will be looking at today is the Rhine, which runs along Europe and is the second largest river in the continent.  
+It starts in Switzerland and meets the open water in the Netherlands, passing through Germany along the way as well.
+
+```{r}
+#library(mapview)
+#library(ggplot2)
+#library(sf)
+#library(data.table)
+
+colset_4 <-  c("#D35C37", "#BF9A77", "#D6C6B9", "#97B8C2")
+
+runoff_stations <- readRDS('data/runoff_stations.rds')
+runoff_day <- readRDS('data/runoff_day.rds')
+
+runoff_stats <- runoff_day[, .(mean_day = round(mean(value), 0),
+                               sd_day = round(sd(value), 0),
+                               min_day = round(min(value), 0),
+                               max_day = round(max(value), 0)), by = sname]
+
+runoff_stats_class <- runoff_stats[, .(sname, 
+                                       mean_day)]
+runoff_stats_class[, runoff_class := factor('low')]
+runoff_stats_class[mean_day >= 1000 & mean_day < 2000, runoff_class := factor('medium')]
+runoff_stats_class[mean_day >= 2000, runoff_class := factor('high')]
+
+runoff_stations[, area_class := factor('small')]
+runoff_stations[area >= 10000 & area < 130000, area_class := factor('medium')]
+runoff_stations[area >= 130000, area_class := factor('large')]
+
+runoff_stations[, alt_class := factor('low')]
+runoff_stations[altitude >= 50 & altitude < 400, alt_class := factor('medium')]
+runoff_stations[altitude >= 400, alt_class := factor('high')]
+
+to_merge <- runoff_stats_class[, .(sname, runoff_class)]
+runoff_summary <- runoff_stations[to_merge, on = 'sname']
+
+```
+
+## Including Plots
+
+Let's have a look at the geographic distribution of the stations along the river Rhine: 
+
+```{r, echo=FALSE}
+
+station_coords_sf <- st_as_sf(runoff_summary, 
+                              coords = c("lon", "lat"), 
+                              crs = 4326)
+mapview(station_coords_sf, map.types = 'Stamen.TerrainBackground')
+
+
+```
+
+Additionally, we are interested in understanding how these stations influence each other. For this, we will create a correlation table with each station to examine their relationships.
+
+```{r, echo = FALSE}
+runoff_summary <- readRDS('data/runoff_summary.rds')
+runoff_stats <- readRDS('data/runoff_stats.rds')
+runoff_month <- readRDS('data/runoff_month.rds')
+runoff_summer <- readRDS('data/runoff_summer.rds')
+runoff_winter <- readRDS('data/runoff_winter.rds')
+runoff_year <- readRDS('data/runoff_year.rds')
+
+colset_4 <-  c("#D35C37", "#BF9A77", "#D6C6B9", "#97B8C2")
+theme_set(theme_bw())
+
+dt <- runoff_summary[, .(sname, area)]
+for_cor <- runoff_stats[dt, on = 'sname']
+cor(for_cor$mean_day, for_cor$area)
+
+
+for_cor_mat <- for_cor[, c('mean_day', 'area')]
+cor(for_cor_mat)
+
+runoff_month_mat <- dcast(runoff_month, date~sname)
+runoff_month_cor <- cor(runoff_month_mat[, -1], use = "pairwise.complete.obs")
+to_plot <- melt(runoff_month_cor)
+
+ggplot(data = to_plot, aes(x = Var1, y = Var2, fill = value)) + 
+  geom_tile(col = 'black') +
+  scale_fill_gradient2(low = colset_4[4], 
+                       high = colset_4[1], 
+                       mid = colset_4[3],
+                       midpoint = 0.5,
+                       limits = c(-0.1, 1)) +
+  geom_text(aes(label = round(value, 1))) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  xlab(label = "") +
+  ylab(label = "")
+
+
+```
+
+As we can see above, the highest correlation is between stations which are close to one another. The first station, DOMA, has 0 correlation to LOBI, the last station where the river joins the sea.  
+This is important to understand because the behavior or changes in one station will not necessarily be reflected directly and clearly down the line. Due to the large size of the river's overall catchment area, variations in altitude, manmade constructions such as dams, the correlations between stations fades as we go up or downstream from each.   
+We should therefore be careful to make overall assumptions about the river based on one or two stations alone, and need to be careful in our approach to the analysis.   
+
+Moving forward, let us examine the relationship between Area and Runoff. 
+
+```{r}
+
+runoff_summary <- readRDS('data/runoff_summary.rds')
+runoff_summary_key <- readRDS('data/runoff_summary_key.rds')
+runoff_stats <- readRDS('data/runoff_stats.rds')
+runoff_month_key <- readRDS('data/runoff_month_key.rds')
+runoff_summer_key <- readRDS('data/runoff_summer_key.rds')
+runoff_winter_key <- readRDS('data/runoff_winter_key.rds')
+runoff_year_key <- readRDS('data/runoff_year_key.rds')
+runoff_summer <- readRDS('data/runoff_summer.rds')
+runoff_winter <- readRDS('data/runoff_winter.rds')
+
+dt <- runoff_summary[, .(sname, area, category)]
+to_plot <- runoff_stats[dt, on = 'sname']
+
+ggplot(to_plot, aes(x = mean_day, y = area, col = category)) +
+  geom_point(cex = 3) +
+  scale_color_manual(values = colset_4[c(2, 3, 4)]) +
+  xlab(label = "Area (km3)") +
+  ylab(label = "Runoff (m3/s)") +
+  theme_bw()
+
+```
+We can see above that as catchment area increases, so does the runoff. This makes sense - catchment area represents the area over which precipitation collects, meaning stations downstream with more river behind them will have a higher runoff than those at the very beginning.  
+The big question we want to examine here is whether the runoff has changed over time. Our hypothesis is that due to rising average temperatures the river runoff has increased in the winters, and decreased in the summers. Because of this we will need to create winter/summer divisions in the data and examine runoff trends over time.   
+
+Let's have a look at winter runoff: 
+
+
+```{r}
+runoff_winter[, value_norm := scale(value), sname]
+runoff_summer[, value_norm := scale(value), sname]
+n_stations <- nrow(runoff_summary)
+
+ggplot(runoff_winter[year > 1950], aes(x = year, y = value_norm, col = sname)) +
+  geom_smooth(method = 'loess', formula = y~x, se = 0) + 
+  scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
+  ggtitle('Winter runoff') +
+  xlab(label = "Year") +
+  ylab(label = "Runoff (m3/s)") +
+  theme_bw()
+
+```
+  
+And now let's examine the summer trends: 
+
+
+```{r}
+ggplot(runoff_summer[year > 1950], aes(x = year, y = value_norm, col = sname)) +
+  geom_smooth(method = 'loess', formula = y~x, se = 0) + 
+  scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
+    ggtitle('Summer runoff') +
+  xlab(label = "Year") +
+  ylab(label = "Runoff (m3/s)") +
+  theme_bw()
+```
+
+Looking at these plots we can see that the runoff has certainly varied over the past century. Non-climate change reasons might include natural variations as well as manmade constructions, such as dams.   
+
+We can note the increase in winter runoff as matching our hypothesis. It showcases an increasing trend, indicating the rising temperatures are causing snow and ice to melt in the colder months, and hence increase the amount of water available in the Rhine.  
+Our summer figures on the other hand showcase a decreasing trend up to 2000, but an increasing trend post-2000. The most drastic change is clearly in the DIER station, which starts with the highest runoff and drops the most drastically, before slightly rising again. 
+
