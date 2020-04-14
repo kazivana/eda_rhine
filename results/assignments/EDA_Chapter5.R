@@ -1,132 +1,96 @@
-library(data.table)
-library(ggplot2)
 
-runoff_summary <- readRDS('data/runoff_summary.rds')
+library(data.table) 
+library(ggplot2) 
+
+colset_4 <-  c("#D35C37", "#BF9A77", "#D6C6B9", "#97B8C2")
+
+runoff_summary <- readRDS('./data/runoff_summary.rds')
+runoff_stats <- readRDS('./data/runoff_stats.rds')
+runoff_day <- readRDS('./data/runoff_day.rds')
+runoff_month <- readRDS('./data/runoff_month.rds')
+runoff_summer <- readRDS('./data/runoff_summer.rds')
+runoff_winter <- readRDS('./data/runoff_winter.rds')
+runoff_year <- readRDS('./data/runoff_year.rds')
+
 runoff_summary_key <- readRDS('data/runoff_summary_key.rds')
-runoff_stats <- readRDS('data/runoff_stats.rds')
+runoff_day_key <- readRDS('data/runoff_day_key.rds')
 runoff_month_key <- readRDS('data/runoff_month_key.rds')
 runoff_summer_key <- readRDS('data/runoff_summer_key.rds')
 runoff_winter_key <- readRDS('data/runoff_winter_key.rds')
 runoff_year_key <- readRDS('data/runoff_year_key.rds')
-runoff_summer <- readRDS('data/runoff_summer.rds')
-runoff_winter <- readRDS('data/runoff_winter.rds')
 
-colset_4 <-  c("#D35C37", "#BF9A77", "#D6C6B9", "#97B8C2")
-theme_set(theme_bw())
+runoff_winter[, value_norm := scale(value), sname]
+runoff_summer[, value_norm := scale(value), sname]
+
+key_stations <- c('DOMA', 'BASR', 'KOEL')
+n_stations <- nrow(runoff_summary)
+
 
 # Navigator tasks --------
  
 #1: Yearly and monthly boxplots
 
-year_thres <- 1950
+runoff_year_key <- runoff_year_key[sname %in% key_stations]
+runoff_year_key[year <= 2000, period := factor('pre_2000')]
+runoff_year_key[year > 2000, period := factor('aft_2000')]
 
-runoff_year_key[year < year_thres, period := factor('pre_2000')]
-runoff_year_key[year >= year_thres, period := factor('aft_2000')]
-
-
-ggplot(runoff_year_key, aes(year, value, fill = period)) +
+ggplot(runoff_year_key, aes(period, value, fill = period)) +
   geom_boxplot() +
   facet_wrap(~sname, scales = 'free_y') +
   scale_fill_manual(values = colset_4[c(4, 1)]) +
-  xlab(label = "Year") +
-  ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
-runoff_month_key[year < year_thres, period := factor('pre_2000')]
-runoff_month_key[year >= year_thres, period := factor('aft_2000')]
+runoff_month_key <- runoff_month[sname %in% key_stations]
+runoff_month_key[year <= 2000, period := factor('pre_2000')]
+runoff_month_key[year > 2000, period := factor('aft_2000')]
 
-ggplot(runoff_month_key, aes(month, value, fill = period)) +
+
+ggplot(runoff_month_key, aes(factor(month), value, fill = period)) +
   geom_boxplot() +
   facet_wrap(~sname, scales = 'free_y') +
   scale_fill_manual(values = colset_4[c(4, 1)]) +
-  xlab(label = "Month") +
-  ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
 #2: 
 
-runoff_month <- readRDS('./data/runoff_month.rds')
-runoff_month[, quantile := cut(value,
-                               breaks = quantile(value, probs = seq(0, 1, by = 1/10)),
-                               labels = 1:10, right = FALSE)]
-runoff_month
+runoff_day_key <- runoff_day[sname %in% key_stations]
+runoff_day_key[year <= 1986, period := factor('pre_1986')]
+runoff_day_key[year > 1986, period := factor('aft_1986')]
+runoff_day_key[, q_10 := quantile(value, 0.1), by = .(sname, month)]
+runoff_day_key[, q_90 := quantile(value, 0.9), by = .(sname, month)]
+runoff_day_key[, runoff_type := factor('normal')]
+runoff_day_key[value <= q_10, runoff_type := factor('low')]
+runoff_day_key[value >= q_90, runoff_type := factor('high')]
+runoff_day_key[, n_days := .N, .(sname, runoff_type, season, year)]
 
-low_runoff_month <- runoff_month[, quantile == 1]
-high_runoff_month <- runoff_month[, quantile == 9]
+to_plot <- unique(runoff_day_key[, .(sname, n_days, period, runoff_type, season, year)])
 
-runoff_month[quantile == 1, by = sname, .N]
-runoff_month[quantile == 9, by = sname, .N]
-
-runoff_month[quantile == 1, by = month, .N]
-runoff_month[quantile == 9, by = month, .N]
-
-runoff_day <- readRDS('./data/runoff_day.rds')
-runoff_day[, quantile := cut(value,
-                             breaks = quantile(value, probs = seq(0, 1, by = 1/10)),
-                             labels = 1:10, right = FALSE)]
-
-low_runoff_day <- runoff_day[, quantile == 1]
-high_runoff_day <- runoff_day[, quantile ==9]
-
-runoff_day[quantile == 1, by = sname, .N]
-runoff_day[quantile == 9, by = sname, .N]
-
+ggplot(to_plot[season == 'winter' | season == 'summer'], aes(season, n_days, fill = period)) +
+  geom_boxplot() +
+  facet_wrap(runoff_type~sname, scales = 'free_y') +
+  scale_fill_manual(values = colset_4[c(4, 1)]) +
+  xlab(label = "Season") +
+  ylab(label = "Number of days") 
 
 
 #3:
-
-ggplot(runoff_summer_key[year <= 2010], aes(x = year, y = value)) +
-  geom_line(col = colset_4[3])+
-  geom_point(col = colset_4[3])+
-  facet_wrap(~sname, scales = 'free') +
-  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
-  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
-  xlab(label = "Year") +
-  ylab(label = "Runoff (m3/s)") +
-  theme_bw()
-
-ggplot(runoff_winter_key[year <= 2010], aes(x = year, y = value)) +
-  geom_line(col = colset_4[3])+
-  geom_point(col = colset_4[3])+
-  facet_wrap(~sname, scales = 'free') +
-  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
-  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
-  xlab(label = "Year") +
-  ylab(label = "Runoff (m3/s)") +
-  theme_bw()
-
-
-runoff_winter[, value_norm := scale(value), sname]
-runoff_summer[, value_norm := scale(value), sname]
-n_stations <- nrow(runoff_summary)
-
-# loess
+#loess
 
 ggplot(runoff_winter[year > 1950 & year < 2010], aes(x = year, y = value_norm, col = sname)) +
   geom_smooth(method = 'loess', formula = y~x, se = 0) + 
-  scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
   ggtitle('Winter runoff') +
   xlab(label = "Year") +
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
-# here we see that adding this change made the graph different by removing the upwards trends which
-# show up at the ends of the lines of the original graph. 
-
 ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, col = sname)) +
   geom_smooth(method = 'loess', formula = y~x, se = 0) + 
-  scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
   ggtitle('Summer runoff') +
   xlab(label = "Year") +
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
-# the same occurs for the summer plot - originally there are upturns in the end of the graph, but by
-# limiting it to pre-2010 we have a stronger downwards trend.
-
-# linear regression
+# linear
 
 ggplot(runoff_winter[year > 1950 & year < 2010], aes(x = year, y = value_norm, col = sname)) +
   geom_smooth(method = 'lm', formula = y~x, se = 0) + 
@@ -144,9 +108,6 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
   ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
-# The linear regression plots show much more straight-forward trends, with upwards lines for
-# increasing winter runoff and downwards for decreasing summer runoff. This indicates that the 
-# results of the linear regression analysis might be oversimplified and overlooking variations. 
 
 # Explorer's questions ----------
 
@@ -164,45 +125,46 @@ ggplot(runoff_summer[year > 1950 & year < 2010], aes(x = year, y = value_norm, c
 
 #2: 
 
-precip_day <- readRDS('./data/precip_day.rds')
-runoff_day <- readRDS('./data/runoff_day.rds')
-precip_day <- precip_day[date >= '1814-11-01']
-precip_day[, .(precipitation = value), (date=date)]
+precip_day <- readRDS('./data/raw/precip_day.rds')
+precip_day[, year := year(date)]
+precip_day[, month := month(date)]
+precip_day <- precip_day[year < 2019]
 
-runoff_day
-setkey(precip_day, date)
-setkey(runoff_day, date)
-precip_runoff_day <- precip_day[runoff_day]
+precip_day[month == 12 | month == 1 | month == 2, season := 'winter']
+precip_day[month == 3 | month == 4 | month == 5, season := 'spring']
+precip_day[month == 6 | month == 7 | month == 8, season := 'summer']
+precip_day[month == 9 | month == 10 | month == 11, season := 'autumn']
+precip_day[, season := factor(season, levels = c('winter', 'spring', 'summer', 'autumn'))]
 
-precip_runoff_day[, .(runoff = i.value)]
+precip_winter <- precip_day[season == 'winter', .(value = sum(value)), by = year]
+precip_summer <- precip_day[season == 'summer', .(value = sum(value)), by = year]
 
-ggplot(precip_runoff_day, aes(year, value, fill = i.value)) +
+year_thres <- 1980
+to_plot <- rbind(cbind(precip_winter, season = factor('winter')), 
+                 cbind(precip_summer, season = factor('summer'))) 
+
+to_plot[year < year_thres, period := factor('1950-1980')]
+to_plot[year >= year_thres, period := factor('1981-2016')]
+to_plot[year < year_thres, period := factor('1950-1980')]
+to_plot[year >= year_thres, period := factor('1981-2016')]
+
+to_plot <- to_plot[year >= 1950]
+
+ggplot(to_plot, aes(season, value, fill = period)) +
   geom_boxplot() +
-  facet_wrap(~sname, scales = 'free_y') +
-  scale_fill_manual(values = colset_4[c(4, 1)]) +
-  xlab(label = "Year") +
-  ylab(label = "Runoff (m3/s)") +
-  theme_bw()
-
-
-ggplot(precip_runoff_day, aes(season, value, fill = i.value)) +
-  geom_boxplot() +
-  facet_wrap(~sname, scales = 'free_y') +
   scale_fill_manual(values = colset_4[c(4, 1)]) +
   xlab(label = "Season") +
-  ylab(label = "Runoff (m3/s)") +
+  ylab(label = "Precitation (mm)") +
   theme_bw()
 
-ggplot(precip_runoff_day, aes(x = year, y = value)) +
-  geom_line(col = colset_4[3])+
-  geom_point(col = colset_4[3])+
-  facet_wrap(~sname, scales = 'free') +
-  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
-  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
-  xlab(label = "Year") +
-  ylab(label = "Precipitation") +
+ggplot(to_plot, aes(year, value, col = season)) +
+  geom_point() +
+  geom_line() +
+  scale_color_manual(values = colset_4[c(4, 1)]) +
+  geom_smooth(se = F) +
   theme_bw()
+
+
 
 #3: I was somewhat surprised to have seen the variations on the Rhine outflow in the above graph. 
 # Whereas I was expecting things to be a somewhat clear correlation between rising temperatures and lower
