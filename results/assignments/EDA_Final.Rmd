@@ -6,7 +6,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, eval = F)
+knitr::opts_chunk$set(echo = TRUE, eval = T)
 knitr::opts_knit$set(root.dir = 'C:/Users/godzi/Documents/eda_rhine')
 
 ```
@@ -20,12 +20,12 @@ getwd()
 
 # Environment setup
 
-#library(ggplot2)
-#library(mapview)
-#library(data.table)
-#library(reshape2)
-#library(sf)
-#library(moments)
+library(ggplot2)
+library(mapview)
+library(data.table)
+library(reshape2)
+library(sf)
+library(moments)
 
 runoff_summary <- readRDS('./data/runoff_summary.rds')
 runoff_day <- readRDS('./data/runoff_day.rds')
@@ -42,6 +42,9 @@ runoff_summer_key <- readRDS('./data/runoff_summer_key.rds')
 runoff_winter_key <- readRDS('./data/runoff_winter_key.rds')
 runoff_year_key <- readRDS('./data/runoff_year_key.rds')
 
+colset_4 <- c("#D35C37", "#BF9A77", "#D6C6B9", "#97B8C2")
+n_stations <- nrow(runoff_summary)
+
 ```
 
 
@@ -55,7 +58,7 @@ Now that twenty years have passed, we are going to dive in to the data and exami
 
 ### Where are we? 
 
-First, let's have a look at the area we will be covering, and at the geographic distribution of the gauging stations from where we are collecting the data.
+First, let's have a look at the area we will be covering, and at the geographic distribution of the gauging stations from where we are collecting the data. 
 
 ```{r, echo = FALSE}
 
@@ -68,102 +71,152 @@ stations_map
 
 
 ```
+  
 
 From this map we can see that the stations are well-distributed across the river. We can also take this moment to note that the water is flowing from the Alps to the Baltic. This means that the stations in Switzerland are the first and at the very beginning of the catchment area of the Rhine, while the Netherlands is where the it meets the North sea.  
 
-We can also take a closer look at the stations in this interactive map and learn more about each one, most relevantly the altitude, area and runoff class. 
-
 One imporant thing to point out is that along the river there is a lot of variation in terms of topography. The beginning of the catchment is in the Alpine and pre-Alpine areas where the highest and largest differences in altitude are (range of 300m - 1200m). These areas' runoff is most influenced by snow.  
-The river then runs through the German Middle Mountain area with altitudes between 150m and 700m, through the scenic Mosel basin, before reaching the lowlands of the Vecht catchment. There are minimal differences in elevantion in this stage, and it is where groundwater plays its biggest role for water balance of the catchment.
+The river then runs through the German Middle Mountain area with altitudes between 150m and 700m, through the scenic Mosel basin, before reaching the lowlands of the Vecht catchment. There are minimal differences in elevation in this stage, and it is where groundwater plays its biggest role for water balance of the catchment.
 
-```{r, echo=FALSE, error=FALSE}
+The stations can therefore be subdivided into three groups - upstream, midstream and downstream. The plot below shows us the average runoff per station, within their flow categories.  
 
-dt <- runoff_summary[, .(sname, area, alt_class)]
-to_plot <- runoff_stats[dt, on = 'sname']
 
-colset_4 <- c("#D35C37", "#BF9A77", "#D6C6B9", "#97B8C2")
-n_stations <- nrow(runoff_summary)
+```{r, echo = FALSE}
+runoff_month_mean <- runoff_month[, .(value = mean(value)), .(month, sname)]
+to_plot <- runoff_month[runoff_summary[, .(sname, category)], on = 'sname']
 
-ggplot(to_plot, aes(x = mean_day, y = area, col = sname, cex = alt_class)) +
-  geom_point() +
-  scale_color_manual(values = colorRampPalette(colset_4)(n_stations)) +
+ggplot(to_plot, aes(x = factor(month), y = value, fill = category, group = month)) +
+  geom_boxplot() +
+  facet_wrap(~sname, scales = 'free') +
+  scale_fill_manual(values = colset_4[c(1, 2, 4)]) +
+  xlab(label = "Month") +
+  ylab(label = "Runoff (m3/s)") +
   theme_bw()
 
 
 ```
 
-This graph shows us that the average runoff increases as catchment area increases, as well as that the runoff increases as altitude decreases.  
-This is because the catchment area represents the total area from which precipitation is being collected into the river flow. At the very beginning of the river, at the highest altitudes, the catchment area is small. However by the very last stations, where altitude has decreased, the runoff is at its highest due to the entirety of the river's catchment area being behind the stations, collecting runoff to be taken to the North Sea basin. 
+We can notice that while the runoff figures for the very first stations in red are in the low hundreds, the very last figures are much higher in the thousands.
+
+This is because the catchment area represents the total area from which precipitation is being collected into the river flow. At the very beginning of the river, at the highest altitudes, the catchment area is small. However by the very last stations, where altitude has decreased, the runoff is at its highest due to the entirety of the river's catchment area being behind the station, collecting discharge to be taken to the North Sea basin. 
+
+To avoid having overwhelmingly large graphs with too much detail, we will be focusing on only three stations moving forward. These are DOMA (Doma/Esr), BASR (Basel, Reinhalle) and KOEL (Koeln), which are each respectively representative of the upstream, mid and downstream categories. 
+ 
+ 
 
 ### What does the historical data tell us about average seasonal runoff?
 
-The following plots showcase the summer and winter means in runoff for the time periods before 2000, representing the data available to Middelkoop et al., and up to 2016. 
+
+We will take a closer look through regression analysis using two different models, loess and linear, to showcase the trends through two different lenses. On the one hand, through the loess model (blue line) we will see in more detail the variations in runoff through time. Our linear model (orange line) creates a general trend line which disregards outliers and highlights the encompassing trends. 
 
 
-```{r pressure, echo=FALSE}
-year_thres <- 2000
+```{r, echo = FALSE}
 
-to_plot <- rbind(cbind(runoff_winter, season = factor('winter')), 
-                 cbind(runoff_summer, season = factor('summer'))) 
+ggplot(runoff_winter_key, aes(x = year, y = value)) +
+  geom_line(col = colset_4[3])+
+  geom_point(col = colset_4[3])+
+  facet_wrap(~sname, scales = 'free') +
+  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
+  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
+  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
+  xlab(label = "Year") +
+  ylab(label = "Runoff (m3/s)") +
+  ggtitle('Winter Runoff Trends') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
 
-to_plot[year < year_thres, period := factor('1950-2000')]
-to_plot[year >= year_thres, period := factor('2001-2016')]
+```
+  
+Middelkoop's research notes that the largest increases in winter flow are to be found in the Alpine area. This is consistent with our data as our graph above shows. Lower temperatures lead to an increase in precipitation in winter months, which in turn lead to a higher rate of runoff. Seeing as the Apine catchment areas are the ones of the highest altitudes, this is where the biggest differences can be seen, in accordance with the paper. 
+
+Further dowmnstream the effects are weakened as these stations are less dependent on snowmelt.  
+
+
+```{r, echo = FALSE}
+
+ggplot(runoff_summer_key, aes(x = year, y = value)) +
+  geom_line(col = colset_4[3])+
+  geom_point(col = colset_4[3])+
+  facet_wrap(~sname, scales = 'free') +
+  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
+  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
+  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
+  xlab(label = "Year") +
+  ylab(label = "Runoff (m3/s)") +
+  ggtitle('Summer Runoff Trends') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+  
+
+Their results also showed that the Alps had the biggest change in summer runoff, with the biggest decrease. This is consistent with our findings above, which show just that in the DOMA catchment. Further downstream the effects are less extreme in the summer. This is due to the decreased snow storage, which has the biggest impact on the Alpine region.   
+
+
+``` {r, echo = FALSE}
+ggplot(runoff_year_key, aes(x = year, y = value)) +
+  geom_line(col = colset_4[3])+
+  geom_point(col = colset_4[3])+
+  facet_wrap(~sname, scales = 'free') +
+  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
+  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
+  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
+  xlab(label = "Year") +
+  ylab(label = "Runoff (m3/s)") +
+  ggtitle('Yearly Runoff Trends') +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Our yearly data showcases that the most drastic change in flow is in the Alpine regions, as our seasonal models indicated. While upstream the Rhine is experiencing an overall decrease in flow, the mid and downstream regions are experiencing an increase in average yearly runoff. 
+
+As mentioned previously, the Alpine region is most dependent on snow, so the reduction in snow cover impacts this region the most. Meanwhile the effects of increased precipitation are more obvious for the mid and downstream regions. Additionally the Vecht catchment water balance is somewhat stabilized by groundwater, which isn't as sensitive to immediate changes in temperature and evapotranspiration. 
+
+The graph below showcases precipitation trends for the region:  
+
+
+```{r, echo = FALSE, message=FALSE}
+
+precip_day <- readRDS('./data/raw/precip_day.rds')
+precip_day[, year := year(date)]
+precip_day[, month := month(date)]
+precip_day <- precip_day[year < 2019]
+
+precip_day[month == 12 | month == 1 | month == 2, season := 'winter']
+precip_day[month == 3 | month == 4 | month == 5, season := 'spring']
+precip_day[month == 6 | month == 7 | month == 8, season := 'summer']
+precip_day[month == 9 | month == 10 | month == 11, season := 'autumn']
+precip_day[, season := factor(season, levels = c('winter', 'spring', 'summer', 'autumn'))]
+
+precip_winter <- precip_day[season == 'winter', .(precipitation = sum(value)), by = year]
+precip_summer <- precip_day[season == 'summer', .(precipitation = sum(value)), by = year]
+
+year_thres <- 1980
+to_plot <- rbind(cbind(precip_winter, season = factor('winter')), 
+                 cbind(precip_summer, season = factor('summer'))) 
+
+to_plot[year < year_thres, period := factor('1950-1980')]
+to_plot[year >= year_thres, period := factor('1981-2016')]
+to_plot[year < year_thres, period := factor('1950-1980')]
+to_plot[year >= year_thres, period := factor('1981-2016')]
 
 to_plot <- to_plot[year >= 1950]
 
-ggplot(to_plot, aes(season, value, fill = period)) +
-  geom_boxplot() +
-  facet_wrap(~sname, scales = 'free_y') +
-  scale_fill_manual(values = colset_4[c(4, 1)]) +
-  xlab(label = "Season") +
-  ylab(label = "Runoff (m3/s)") +
+ggplot(to_plot, aes(year, precipitation, col = season)) +
+  geom_point() +
+  geom_line() +
+  scale_color_manual(values = colset_4[c(4, 1)]) +
+  geom_smooth(se = F) +
   theme_bw()
 
 ```
 
 
-One might notice that there is some variation between stations. Middelkoop et al. also noted in their paper that there are differences between the stations due to their locations and topography, which influence the relevant hydrological processes. 
-- check whether to use 1980 as a base instead, read through middelkoop again - 
+### Conclusion  
 
+In this summary we simplified the records by focusing on representative stations. Middelkoop notes that there are variations in daily runoff among individual gauging stations, particularly in the Alpine regions where the biggest differences in altitude are. However, even with only selected stations' data we can see that a lot of the indicators match the findings of Middelkoop et al. 
 
-We should also take a closer look through regression analysis. 
+The increase in temperature indicates decreased storage in the form of winter snow and ice, and in turn an increase in winter percipitation, as Middelkoop et al. noted in their conclusions. This in turn leads to an increase in winter runoff, especially in the Alps, but also a decrease in the summer due to fewer depositories. We have already come across the issues that come with these changes in water flow, such as staggeringly low levels in the summers of [2018](https://www.dw.com/en/germany-swelters-under-heat-wave/a-44839919) and [2019](https://rivercruisepassenger.com.au/heatwave-and-low-water-levels-in-europe-may-force-river-cruise-itinerary-changes/), and flooding in the winter of [2020](https://www.general-anzeiger-bonn.de/ga-english/news/rhine-level-in-bonn-is-currently-rising-rapidly_aid-48739343). 
 
-```{r, echo = FALSE}
+The implications of these changes in water flow are far reaching and severe, with the potential to impact ecology, freshwater availability, commerce, industry and agriculture across several societies. As the articles above show, some of the issues that Middelkoop highlighted in their paper such as inland navigation and flood defense needs have already transpired. In the paper they highlight the importance of approaching these issues with a flexible approach and long-term thinking, as there is still a lot of uncertainty regarding the rate and magnitude of the changes that will be occuring in the future. 
 
-ggplot(runoff_winter, aes(x = year, y = value)) +
-  geom_line(col = colset_4[3])+
-  geom_point(col = colset_4[3])+
-  facet_wrap(~sname, scales = 'free') +
-  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
-  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
-  xlab(label = "Year") +
-  ylab(label = "Runoff (m3/s)") +
-  theme_bw()
-
-```
-
-```{r, echo = FALSE}
-
-ggplot(runoff_summer, aes(x = year, y = value)) +
-  geom_line(col = colset_4[3])+
-  geom_point(col = colset_4[3])+
-  facet_wrap(~sname, scales = 'free') +
-  geom_smooth(method = 'lm', formula = y~x, se = 0, col = colset_4[1]) +
-  geom_smooth(method = 'loess', formula = y~x, se = 0, col = colset_4[4]) +
-  scale_color_manual(values = colset_4[c(1, 2, 4)]) +
-  xlab(label = "Year") +
-  ylab(label = "Runoff (m3/s)") +
-  theme_bw()
-```
-
-We have used two different regression models here, loess and linear, to showcase the trends through two difference lenses. On the one hand, through the loess model we can see in mode detail the variations in runoff through time. Our linear model creates a general trend line which disregards outliers and highlights the encompassing trends. 
-
-We can see above that the summer runoff values are decreasing, while the winter ones are increasing. 
-
-
-### Conclusion
-
-Looking at the data one could conclude that Middelkoop et al.'s predictions have been proven to be reasonably accurate. The runoff in the winter months has had an upward trend, while the summer months have been experiencing a decrease in runoff. The data supports the hypothesis that rising average temperatures have this effect on the river's discharge, which has important implications for the socities that depend on it as a source of fresh water, as well as economical, agricultural and industry implications. 
-
-Furthermore, we can look at recent events to note the seasonal variations in river discharge. Summer months have shown an increase in low-flow reports, such as the events in [2018](https://www.dw.com/en/germany-swelters-under-heat-wave/a-44839919) and [2019](https://rivercruisepassenger.com.au/heatwave-and-low-water-levels-in-europe-may-force-river-cruise-itinerary-changes/). On the other hand, winter reports showcase the dangers of rising discharge levels, as in February of [2020](https://www.general-anzeiger-bonn.de/ga-english/news/rhine-level-in-bonn-is-currently-rising-rapidly_aid-48739343). 
